@@ -1,2 +1,2 @@
 # go-tour
-Responses to exercises from tour.golang.org
+Responses to exercises from https://tour.golang.org
