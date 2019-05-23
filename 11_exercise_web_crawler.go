@@ -26,13 +26,17 @@ type SafeFetchedUrls struct {
 // pages starting with url, to a maximum of depth.
 func Crawl(url string, depth int, fetcher Fetcher) {
 	fetchedUrls := SafeFetchedUrls{v: make(map[string]bool)}
-
+	wg := &sync.WaitGroup{}
 	c := make(chan string)
+	wg.Add(1)
+	go NightCrawler(url, depth, fetcher, fetchedUrls, c, wg)
 
-	go NightCrawler(url, depth, fetcher, fetchedUrls, c)
-
-	for i := 0; i < 5; i++ {
-		fmt.Println(<-c)
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
+	for i := range c {
+		fmt.Println(i)
 	}
 }
 func (s SafeFetchedUrls) fetchedUrls(url string) bool {
@@ -46,27 +50,22 @@ func (s SafeFetchedUrls) fetchedUrls(url string) bool {
 	return true
 
 }
-func NightCrawler(url string, depth int, fetcher Fetcher, fetchedUrls SafeFetchedUrls, c chan string) {
-
+func NightCrawler(url string, depth int, fetcher Fetcher, fetchedUrls SafeFetchedUrls, c chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	if depth <= 0 || fetchedUrls.fetchedUrls(url) {
 		return
 	}
-
 	body, urls, err := fetcher.Fetch(url)
-
 	c <- url + " " + body
-
 	if err != nil {
 		return
 	}
 
 	for _, u := range urls {
-		go NightCrawler(u, depth-1, fetcher, fetchedUrls, c)
-
+		go NightCrawler(u, depth-1, fetcher, fetchedUrls, c, wg)
+		wg.Add(1)
 	}
-
 	return
-
 }
 
 func main() {
